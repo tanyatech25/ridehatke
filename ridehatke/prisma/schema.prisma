@@ -24,3 +24,13 @@ model User {
   identifier String   @unique
   createdAt  DateTime @default(now())
 }
+
+model Otp {
+  id         String   @id @default(uuid())
+  identifier String
+  code       String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([identifier])
+}

@@ -13,6 +13,8 @@ export default function Signup() {
   const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"details" | "otp">("details");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -20,36 +22,72 @@ export default function Signup() {
 
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (firstName && lastName && identifier) {
-      setStep("otp");
+      setLoading(true);
+      setError("");
+      try {
+        const res = await fetch('/api/auth/otp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setStep("otp");
+        } else {
+          setError(data.error || "Failed to send OTP");
+        }
+      } catch (err) {
+        setError("Network error. Please try again.");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp === "1234") { 
-      try {
-        const res = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ firstName, lastName, identifier })
-        });
-        
-        const data = await res.json();
-        
-        if (res.ok) {
-          alert(`Sign up successful! Welcome to RideHatke, ${firstName}.`);
-          router.push("/");
-        } else {
-          alert(`Error: ${data.error}`);
-        }
-      } catch (error) {
-        alert("Failed to connect to the server.");
+    setLoading(true);
+    setError("");
+
+    try {
+      // 1. Verify OTP first
+      const verifyRes = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, otp })
+      });
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok) {
+        setError(verifyData.error || "Invalid OTP");
+        setLoading(false);
+        return;
       }
-    } else {
-      alert("Invalid OTP (Hint: use 1234)");
+
+      // 2. If OTP is valid, proceed with Signup
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName, lastName, identifier })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        // Save user data to localStorage
+        localStorage.setItem('ridehatke_user', JSON.stringify(data.user));
+        alert(`Sign up successful! Welcome to RideHatke, ${firstName}. 🎉`);
+        router.push("/");
+      } else {
+        setError(data.error);
+      }
+    } catch (error) {
+      setError("Failed to connect to the server.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -73,6 +111,21 @@ export default function Signup() {
       <div className="container">
         <div className="glass-panel animate-slide-up">
           <h1 className="panel-title">Create Account</h1>
+
+          {error && (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '12px',
+              padding: '0.75rem 1rem',
+              marginBottom: '1.5rem',
+              color: '#ef4444',
+              fontSize: '0.9rem',
+              fontWeight: 500
+            }}>
+              ⚠️ {error}
+            </div>
+          )}
           
           {step === "details" ? (
             <form onSubmit={handleSendOtp}>
@@ -115,7 +168,9 @@ export default function Signup() {
                   required
                 />
               </div>
-              <button type="submit" className="btn-primary">Send OTP</button>
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? "Sending..." : "Send OTP"}
+              </button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="animate-fade-in">
@@ -132,7 +187,9 @@ export default function Signup() {
                   required
                 />
               </div>
-              <button type="submit" className="btn-primary">Verify & Create Account</button>
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? "Verifying..." : "Verify & Create Account"}
+              </button>
               <button 
                 type="button" 
                 onClick={() => setStep("details")} 

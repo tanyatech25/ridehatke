@@ -10,6 +10,8 @@ export default function Login() {
   const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"details" | "otp">("details");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -17,20 +19,88 @@ export default function Login() {
 
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (identifier) {
-      setStep("otp");
+    if (!identifier) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      // Check if user exists in the database
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        // User exists — now send OTP
+        const otpRes = await fetch('/api/auth/otp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier })
+        });
+        
+        const otpData = await otpRes.json();
+        
+        if (otpRes.ok) {
+          setStep("otp");
+        } else {
+          setError(otpData.error || "Failed to send OTP.");
+        }
+      } else {
+        // User not found
+        setError(data.error || "Account not found. Please sign up first.");
+      }
+    } catch (err) {
+      setError("Failed to connect to the server. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp === "1234") { // Mock OTP validation
-      alert("Login successful!");
-      router.push("/");
-    } else {
-      alert("Invalid OTP (Hint: use 1234)");
+    setLoading(true);
+    setError("");
+
+    try {
+      // 1. Verify OTP first
+      const verifyRes = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, otp })
+      });
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok) {
+        setError(verifyData.error || "Invalid OTP");
+        setLoading(false);
+        return;
+      }
+
+      // 2. Fetch user data
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        localStorage.setItem('ridehatke_user', JSON.stringify(data.user));
+        alert(`Welcome back, ${data.user.firstName}! 🎉`);
+        router.push("/");
+      } else {
+        setError(data.error || "Failed to login.");
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -55,6 +125,21 @@ export default function Login() {
         <div className="glass-panel animate-slide-up">
           <h1 className="panel-title">Welcome Back</h1>
           
+          {error && (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '12px',
+              padding: '0.75rem 1rem',
+              marginBottom: '1.5rem',
+              color: '#ef4444',
+              fontSize: '0.9rem',
+              fontWeight: 500
+            }}>
+              ⚠️ {error}
+            </div>
+          )}
+
           {step === "details" ? (
             <form onSubmit={handleSendOtp}>
               <div className="input-group">
@@ -65,31 +150,47 @@ export default function Login() {
                   className="text-input" 
                   placeholder="Enter email or phone" 
                   value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
+                  onChange={(e) => { setIdentifier(e.target.value); setError(""); }}
                   required
                 />
               </div>
-              <button type="submit" className="btn-primary">Send OTP</button>
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? "Checking..." : "Send OTP"}
+              </button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="animate-fade-in">
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: '12px',
+                padding: '0.75rem 1rem',
+                marginBottom: '1.5rem',
+                color: '#10b981',
+                fontSize: '0.9rem',
+                fontWeight: 500
+              }}>
+                ✅ Account verified! OTP sent to {identifier}
+              </div>
               <div className="input-group">
-                <label className="input-label">Enter OTP sent to {identifier}</label>
+                <label className="input-label">Enter OTP</label>
                 <span className="input-icon">🔐</span>
                 <input 
                   type="text" 
                   className="text-input" 
                   placeholder="Enter 4-digit OTP" 
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) => { setOtp(e.target.value); setError(""); }}
                   maxLength={4}
                   required
                 />
               </div>
-              <button type="submit" className="btn-primary">Verify & Login</button>
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? "Verifying..." : "Verify & Login"}
+              </button>
               <button 
                 type="button" 
-                onClick={() => setStep("details")} 
+                onClick={() => { setStep("details"); setError(""); }}
                 style={{ 
                   marginTop: '1rem', 
                   width: '100%', 
@@ -100,7 +201,8 @@ export default function Login() {
                   borderRadius: '20px', 
                   cursor: 'pointer',
                   fontSize: '1.125rem',
-                  fontWeight: 600
+                  fontWeight: 600,
+                  fontFamily: 'inherit'
                 }}
               >
                 Back

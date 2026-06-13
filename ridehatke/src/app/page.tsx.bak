@@ -63,14 +63,11 @@ export default function Home() {
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [loggedInUser, setLoggedInUser] = useState<{firstName: string, lastName: string} | null>(null);
 
   // Map States
   const [routeCoordinates, setRouteCoordinates] = useState<[number, number][] | null>(null);
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<[number, number] | null>(null);
-  const [distanceKm, setDistanceKm] = useState<number | null>(null);
-  const [drivingTime, setDrivingTime] = useState<string | null>(null);
   
   // Interactive UI States
   const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([]);
@@ -89,66 +86,6 @@ export default function Home() {
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
   };
-
-  // Check if user is logged in
-  useEffect(() => {
-    const userData = localStorage.getItem('ridehatke_user');
-    if (userData) {
-      try {
-        setLoggedInUser(JSON.parse(userData));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('ridehatke_user');
-    setLoggedInUser(null);
-  };
-
-  // AGENTIC AI: Listen for ride search commands from the chatbot
-  const aiSearch = async (aiPickup: string, aiDropoff: string) => {
-    setPickup(aiPickup);
-    setDropoff(aiDropoff);
-    setShowPickupDropdown(false);
-    setShowDropoffDropdown(false);
-    setLoading(true);
-    setHasSearched(true);
-    setRides([]);
-
-    try {
-      const res = await fetch('/api/rides', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pickup: aiPickup, dropoff: aiDropoff }),
-      });
-      const data = await res.json();
-      if (data.results) {
-        setRides(data.results);
-        if (data.routeCoordinates) setRouteCoordinates(data.routeCoordinates);
-        if (data.pickupCoords) setPickupCoords(data.pickupCoords);
-        if (data.dropoffCoords) setDropoffCoords(data.dropoffCoords);
-        if (data.distanceKm) setDistanceKm(data.distanceKm);
-        if (data.drivingTime) setDrivingTime(data.drivingTime);
-      }
-    } catch (error) {
-      console.error("AI search failed", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const handleAISearch = (e: any) => {
-      const { pickup: aiPickup, dropoff: aiDropoff } = e.detail;
-      if (aiPickup && aiDropoff) {
-        aiSearch(aiPickup, aiDropoff);
-      }
-    };
-    window.addEventListener('ridehatke-ai-search', handleAISearch);
-    return () => window.removeEventListener('ridehatke-ai-search', handleAISearch);
-  }, []);
 
   // Fetch location suggestions from OpenStreetMap
   const fetchSuggestions = async (query: string, setSuggestions: (s: string[]) => void) => {
@@ -232,8 +169,6 @@ export default function Home() {
         if (data.routeCoordinates) setRouteCoordinates(data.routeCoordinates);
         if (data.pickupCoords) setPickupCoords(data.pickupCoords);
         if (data.dropoffCoords) setDropoffCoords(data.dropoffCoords);
-        if (data.distanceKm) setDistanceKm(data.distanceKm);
-        if (data.drivingTime) setDrivingTime(data.drivingTime);
       }
     } catch (error) {
       console.error("Failed to fetch rides", error);
@@ -314,65 +249,15 @@ export default function Home() {
               🌐 {language} <span style={{fontSize: '0.6em', marginLeft: '4px'}}>▼</span>
             </button>
             <div className="dropdown-menu">
-              <button className="dropdown-item" onClick={() => { setLanguage('EN'); localStorage.setItem('appLanguage', 'EN'); }}>English (EN)</button>
-              <button className="dropdown-item" onClick={() => { setLanguage('HI'); localStorage.setItem('appLanguage', 'HI'); }}>हिंदी (Hindi)</button>
+              <button className="dropdown-item" onClick={() => setLanguage('EN')}>English (EN)</button>
+              <button className="dropdown-item" onClick={() => setLanguage('HI')}>हिंदी (Hindi)</button>
             </div>
           </div>
           <Link href="/help" className="nav-link hide-mobile">{t.navHelp}</Link>
-          {loggedInUser ? (
-            <div className="nav-dropdown">
-              <button 
-                className="dropdown-toggle" 
-                aria-haspopup="true"
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '50%',
-                  background: 'var(--primary-gradient)',
-                  color: 'white',
-                  border: 'none',
-                  fontSize: '1.1rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: 'var(--shadow-btn)',
-                  transition: 'transform 0.2s ease',
-                  fontFamily: 'inherit'
-                }}
-              >
-                {loggedInUser.firstName.charAt(0).toUpperCase()}
-              </button>
-              <div className="dropdown-menu" style={{ right: 0, minWidth: '200px' }}>
-                <div style={{ 
-                  padding: '0.75rem 1rem', 
-                  borderBottom: '1px solid var(--border-color)',
-                  marginBottom: '0.25rem'
-                }}>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>
-                    {loggedInUser.firstName} {loggedInUser.lastName}
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Personal Account
-                  </div>
-                </div>
-                <button className="dropdown-item">⚙️ Settings</button>
-                <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '0.25rem', paddingTop: '0.25rem' }}>
-                  <button className="dropdown-item" onClick={handleLogout} style={{ color: '#ef4444' }}>
-                    🚪 Logout
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <>
-              <Link href="/login" className="nav-link hide-mobile">{t.navLogin}</Link>
-              <Link href="/signup" style={{ textDecoration: 'none' }}>
-                <button className="nav-btn-signup">{t.navSignup}</button>
-              </Link>
-            </>
-          )}
+          <Link href="/login" className="nav-link hide-mobile">{t.navLogin}</Link>
+          <Link href="/signup" style={{ textDecoration: 'none' }}>
+            <button className="nav-btn-signup">{t.navSignup}</button>
+          </Link>
           <button 
             className="theme-toggle nav-theme-toggle" 
             onClick={toggleTheme}
@@ -481,35 +366,6 @@ export default function Home() {
 
           {!loading && hasSearched && rides.length > 0 && (
             <div className="results-container">
-              {/* Trip Info Bar */}
-              {distanceKm && drivingTime && (
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-around',
-                  background: 'var(--surface-color)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '16px',
-                  padding: '1rem 1.5rem',
-                  marginBottom: '1rem',
-                  textAlign: 'center'
-                }}>
-                  <div>
-                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>{distanceKm} km</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Distance</div>
-                  </div>
-                  <div style={{ width: '1px', background: 'var(--border-color)' }}></div>
-                  <div>
-                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>{drivingTime}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Drive Time</div>
-                  </div>
-                  <div style={{ width: '1px', background: 'var(--border-color)' }}></div>
-                  <div>
-                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>{rides.length}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Options</div>
-                  </div>
-                </div>
-              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{t.recentSearches || "Available Rides"}</h3>
                 <button onClick={shareOnWhatsApp} className="btn-whatsapp">
@@ -534,7 +390,7 @@ export default function Home() {
                     
                     <div className="price-info">
                       <span className="price">₹{ride.price}</span>
-                      <span className="eta">🕐 {ride.eta}</span>
+                      <span className="eta">{ride.eta} {t.away}</span>
                     </div>
 
                     <button onClick={() => handleBook(ride)} className="btn-book">
