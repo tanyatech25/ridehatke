@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     });
 
     if (existingUser) {
-      return NextResponse.json({ error: "User already exists with this email/phone." }, { status: 400 });
+      return NextResponse.json({ error: "User already exists with this email address." }, { status: 400 });
     }
 
     // Create the new user

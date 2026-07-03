@@ -157,14 +157,14 @@ export default function Signup() {
               </div>
 
               <div className="input-group">
-                <label className="input-label">Email or Phone Number</label>
-                <span className="input-icon">📱</span>
+                <label className="input-label">Email Address</label>
+                <span className="input-icon">✉️</span>
                 <input 
-                  type="text" 
+                  type="email" 
                   className="text-input" 
-                  placeholder="Enter email or phone" 
+                  placeholder="Enter your email address" 
                   value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
+                  onChange={(e) => { setIdentifier(e.target.value); setError(""); }}
                   required
                 />
               </div>
@@ -175,7 +175,7 @@ export default function Signup() {
           ) : (
             <form onSubmit={handleVerifyOtp} className="animate-fade-in">
               <div className="input-group">
-                <label className="input-label">Enter OTP sent to {identifier}</label>
+                <label className="input-label">Enter OTP sent to your email: {identifier}</label>
                 <span className="input-icon">🔐</span>
                 <input 
                   type="text" 
@@ -186,6 +186,9 @@ export default function Signup() {
                   maxLength={4}
                   required
                 />
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem', textAlign: 'left' }}>
+                  💡 Local Demo Bypass: Enter <strong>1234</strong> as the OTP code.
+                </div>
               </div>
               <button type="submit" className="btn-primary" disabled={loading}>
                 {loading ? "Verifying..." : "Verify & Create Account"}

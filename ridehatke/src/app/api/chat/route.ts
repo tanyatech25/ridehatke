@@ -1,5 +1,42 @@
 import { NextResponse } from 'next/server';
 
+function cleanLocation(loc: string): string {
+  if (!loc) return "";
+  let clean = loc.trim();
+  
+  // Remove starting/trailing non-alphanumeric chars (except spaces and devnagari chars)
+  clean = clean.replace(/^[^a-zA-Z0-9\u0900-\u097F]+/, '');
+  clean = clean.replace(/[^a-zA-Z0-9\u0900-\u097F]+$/, '');
+  
+  // Words to remove from the start of the location string
+  const startStopWords = [
+    'a', 'the', 'my', 'go', 'to', 'from', 'ride', 'cab', 'taxi', 'check', 'search', 
+    'find', 'book', 'compare', 'please', 'need', 'want', 'any', 'get', 'show',
+    'chalo', 'dikhao', 'dhoondo', 'dhundo', 'check', 'khojo'
+  ];
+  
+  // Words to remove from the end of the location string
+  const endStopWords = [
+    'ride', 'cab', 'taxi', 'check', 'search', 'find', 'book', 'compare', 'please', 
+    'need', 'want', 'price', 'fare', 'kiraya', 'rate', 'charges', 'cost', 'kitna', 
+    'khas', 'tak', 'तक', 'se', 'से', 'ka', 'का', 'ki', 'की', 'ko', 'को'
+  ];
+
+  let words = clean.split(/\s+/);
+  
+  // Clean start words repeatedly
+  while (words.length > 0 && startStopWords.includes(words[0].toLowerCase())) {
+    words.shift();
+  }
+  
+  // Clean end words repeatedly
+  while (words.length > 0 && endStopWords.includes(words[words.length - 1].toLowerCase())) {
+    words.pop();
+  }
+  
+  return words.join(' ').trim();
+}
+
 export async function POST(req: Request) {
   try {
     const { message, language } = await req.json();
@@ -15,38 +52,54 @@ export async function POST(req: Request) {
     let dropoff: string | null = null;
 
     // ============================================
-    // AGENTIC AI: Detect ride search intent
+    // AGENTIC AI: Robustly parse ride search intent
     // ============================================
-    
-    // English patterns: "ride from X to Y", "cab from X to Y", "check X to Y", "search X to Y", "book from X to Y", "X to Y price"
-    const enPatterns = [
-      /(?:ride|cab|taxi|check|search|find|book|compare|fare|price|go|travel|drive).*?(?:from)\s+(.+?)\s+(?:to)\s+(.+?)(?:\s*$|\s*\?|\s*please|\s*\.)/i,
-      /(?:from)\s+(.+?)\s+(?:to)\s+(.+?)(?:\s+(?:ride|cab|taxi|price|fare|check|search|book|compare)|\s*$|\s*\?|\s*\.)/i,
-      /(.+?)\s+(?:to)\s+(.+?)\s+(?:ride|cab|taxi|price|fare|check|search|book|compare|kitna|kितना)/i,
-    ];
 
-    // Hindi patterns: "X se Y", "X se Y tak", "X se Y ka kiraya"
-    const hiPatterns = [
-      /(.+?)\s+(?:se|से)\s+(.+?)(?:\s+(?:tak|तक|ka|का|ki|की|kiraya|किराया|ride|cab|check|price|kitna|कितना|jaana|जाना|book)|\s*$|\s*\?|\s*\.)/i,
-    ];
-
-    const allPatterns = [...enPatterns, ...hiPatterns];
-
-    for (const pattern of allPatterns) {
-      const match = msg.match(pattern);
-      if (match && match[1] && match[2]) {
-        pickup = match[1].trim().replace(/^(a |the |my )/i, '');
-        dropoff = match[2].trim().replace(/^(a |the |my )/i, '');
-        
-        // Validate: both locations should be at least 2 chars and not be common words
-        const stopWords = ['me', 'i', 'the', 'a', 'is', 'it', 'this', 'that', 'how', 'much', 'what'];
-        if (pickup.length >= 2 && dropoff.length >= 2 && 
-            !stopWords.includes(pickup.toLowerCase()) && !stopWords.includes(dropoff.toLowerCase())) {
+    // 1. Hindi Pattern check: "se" or "से"
+    const hindiDelimiters = [/\bse\b/, /(?:\s|^)से(?:\s|$)/];
+    for (const delimiter of hindiDelimiters) {
+      const match = msg.split(delimiter);
+      if (match.length >= 2) {
+        const potentialPickup = cleanLocation(match[0]);
+        const potentialDropoff = cleanLocation(match.slice(1).join(' '));
+        if (potentialPickup && potentialDropoff && potentialPickup.length >= 2 && potentialDropoff.length >= 2) {
+          pickup = potentialPickup;
+          dropoff = potentialDropoff;
           action = "search_ride";
           reply = isHindi
             ? `🔍 मैं **${pickup}** से **${dropoff}** तक की सवारी खोज रहा हूँ... एक सेकंड रुकिए!`
             : `🔍 Searching rides from **${pickup}** to **${dropoff}**... Hold on!`;
           break;
+        }
+      }
+    }
+
+    // 2. English Pattern check: "to"
+    if (!action) {
+      const englishDelimiters = [/\bto\b/];
+      for (const delimiter of englishDelimiters) {
+        const match = msg.split(delimiter);
+        if (match.length >= 2) {
+          let left = match[0];
+          let right = match.slice(1).join(' ');
+          
+          // If left side has "from", take everything after the last "from"
+          const fromIndex = left.lastIndexOf('from');
+          if (fromIndex !== -1 && fromIndex + 4 < left.length) {
+            left = left.substring(fromIndex + 4);
+          }
+          
+          const potentialPickup = cleanLocation(left);
+          const potentialDropoff = cleanLocation(right);
+          if (potentialPickup && potentialDropoff && potentialPickup.length >= 2 && potentialDropoff.length >= 2) {
+            pickup = potentialPickup;
+            dropoff = potentialDropoff;
+            action = "search_ride";
+            reply = isHindi
+              ? `🔍 मैं **${pickup}** से **${dropoff}** तक की सवारी खोज रहा हूँ... एक सेकंड रुकिए!`
+              : `🔍 Searching rides from **${pickup}** to **${dropoff}**... Hold on!`;
+            break;
+          }
         }
       }
     }
@@ -68,6 +121,11 @@ export async function POST(req: Request) {
           ? "भारी ट्रैफ़िक में, **Rapido** बाइक्स सबसे तेज़ होती हैं। लंबी दूरी के लिए हमारा मैप सिस्टम सबसे बढ़िया हाईवे रूट खोजता है ताकि आप जल्दी पहुँच सकें।"
           : "For heavy traffic, **Rapido** bikes are usually the fastest way to cut through the city. For longer distances, our OpenStreetMap integration finds the most optimal highway route to avoid congestion.";
       } 
+      else if (msg.includes("loc") || msg.includes("landmark") || msg.includes("place") || msg.includes("address") || msg.includes("nhi mil") || msg.includes("mil nahi")) {
+        reply = isHindi
+          ? "अगर आपको अपनी सही लोकेशन नहीं मिल रही है, तो आप ये तरीके आज़मा सकते हैं:\n1. किसी प्रसिद्ध लैंडमार्क, मेट्रो स्टेशन या मुख्य सड़क का नाम डालें।\n2. वर्तनी (spelling) की जाँच करें या शब्दों के बीच कॉमा लगाएं।\n3. 'मेरी वर्तमान लोकेशन (GPS)' पर क्लिक करें ताकि आपका डिवाइस आपकी सही लोकेशन पहचान सके।"
+          : "If you can't find your location in the suggestions, here are some tips:\n1. Try searching for a nearby famous landmark, metro station, or major road.\n2. Double check the spelling (e.g. spelling errors like 'locoation') or separate terms with commas.\n3. Click the 'Use my current location (GPS)' option to automatically detect your location.";
+      }
       else if (msg.includes("hello") || msg.includes("hi") || msg.includes("hey") || msg.includes("namaste") || msg.includes("नमस्ते")) {
         reply = isHindi
           ? "नमस्ते! 👋 मैं **RideCare AI** हूँ। मैं आपको सबसे अच्छे रूट, कैब के प्राइसेस और रेटिंग्स के बारे में बता सकता हूँ। आप बोलकर भी मुझसे राइड सर्च करवा सकते हैं! बस कहें — **'दिल्ली से आगरा तक राइड चेक करो'**"
@@ -91,7 +149,6 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ reply, action, pickup, dropoff });
-    
   } catch (error) {
     return NextResponse.json({ reply: "Oops, my circuits are a bit jammed! Try asking me again in a moment." });
   }

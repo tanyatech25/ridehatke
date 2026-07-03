@@ -143,12 +143,12 @@ export default function Login() {
           {step === "details" ? (
             <form onSubmit={handleSendOtp}>
               <div className="input-group">
-                <label className="input-label">Email or Phone Number</label>
-                <span className="input-icon">📱</span>
+                <label className="input-label">Email Address</label>
+                <span className="input-icon">✉️</span>
                 <input 
-                  type="text" 
+                  type="email" 
                   className="text-input" 
-                  placeholder="Enter email or phone" 
+                  placeholder="Enter your email address" 
                   value={identifier}
                   onChange={(e) => { setIdentifier(e.target.value); setError(""); }}
                   required
@@ -170,7 +170,7 @@ export default function Login() {
                 fontSize: '0.9rem',
                 fontWeight: 500
               }}>
-                ✅ Account verified! OTP sent to {identifier}
+                ✅ Account verified! OTP sent to your email: {identifier}
               </div>
               <div className="input-group">
                 <label className="input-label">Enter OTP</label>
@@ -184,6 +184,9 @@ export default function Login() {
                   maxLength={4}
                   required
                 />
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem', textAlign: 'left' }}>
+                  💡 Local Demo Bypass: Enter <strong>1234</strong> as the OTP code.
+                </div>
               </div>
               <button type="submit" className="btn-primary" disabled={loading}>
                 {loading ? "Verifying..." : "Verify & Login"}

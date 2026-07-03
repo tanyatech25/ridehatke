@@ -80,7 +80,7 @@ export default function Home() {
   const [showDropoffDropdown, setShowDropoffDropdown] = useState(false);
 
   const t = translations[language] || translations.EN;
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);

@@ -39,7 +39,7 @@ export default function RideCareChat() {
           setInput(transcript);
           setIsListening(false);
           // Auto-send the voice message
-          handleSendVoice(transcript);
+          handleSendVoice(transcript, true);
         };
 
         recognition.onerror = () => {
@@ -55,11 +55,11 @@ export default function RideCareChat() {
     }
   }, []);
 
-  const handleSendVoice = async (voiceText: string) => {
+  const handleSendVoice = async (voiceText: string, isVoice = false) => {
     if (!voiceText.trim()) return;
 
     const userMsg = voiceText.trim();
-    setMessages(prev => [...prev, { role: "user", content: `🎤 ${userMsg}` }]);
+    setMessages(prev => [...prev, { role: "user", content: isVoice ? `🎤 ${userMsg}` : userMsg }]);
     setInput("");
     setIsTyping(true);
 
@@ -104,7 +104,7 @@ export default function RideCareChat() {
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    handleSendVoice(input);
+    handleSendVoice(input, false);
   };
 
   const toggleMic = () => {
@@ -117,6 +117,8 @@ export default function RideCareChat() {
       recognitionRef.current.stop();
       setIsListening(false);
     } else {
+      const appLanguage = typeof window !== 'undefined' ? localStorage.getItem('appLanguage') || 'EN' : 'EN';
+      recognitionRef.current.lang = appLanguage === 'HI' ? 'hi-IN' : 'en-IN';
       setIsListening(true);
       recognitionRef.current.start();
     }

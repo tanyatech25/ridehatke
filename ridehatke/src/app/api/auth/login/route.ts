@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "No account found with this email/phone. Please sign up first." },
+        { error: "No account found with this email address. Please sign up first." },
         { status: 404 }
       );
     }
