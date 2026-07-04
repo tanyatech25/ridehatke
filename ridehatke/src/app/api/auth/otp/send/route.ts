@@ -72,7 +72,11 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, message: "OTP sent successfully" }, { status: 200 });
+    return NextResponse.json({ 
+      success: true, 
+      message: "OTP sent successfully",
+      code: process.env.NODE_ENV === 'development' ? otpCode : undefined
+    }, { status: 200 });
 
   } catch (error: any) {
     console.error("OTP send failed:", error);

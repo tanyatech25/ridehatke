@@ -36,6 +36,9 @@ export default function Signup() {
         const data = await res.json();
         if (res.ok) {
           setStep("otp");
+          if (data.code) {
+            alert(`[Development Mode] Your OTP code is: ${data.code}`);
+          }
         } else {
           setError(data.error || "Failed to send OTP");
         }

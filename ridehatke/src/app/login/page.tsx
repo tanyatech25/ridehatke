@@ -48,6 +48,9 @@ export default function Login() {
         
         if (otpRes.ok) {
           setStep("otp");
+          if (otpData.code) {
+            alert(`[Development Mode] Your OTP code is: ${otpData.code}`);
+          }
         } else {
           setError(otpData.error || "Failed to send OTP.");
         }
